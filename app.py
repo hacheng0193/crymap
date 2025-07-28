@@ -44,7 +44,14 @@ def get_binance_symbols():
     except Exception as e:
         st.error(f"❌ 獲取交易對失敗: {e}")
         return None
-
+def get_symbols_from_file():
+    """從本地文件獲取交易對清單"""
+    try:
+        with open('coin_list.json', 'r') as file:
+            return json.load(file)
+    except Exception as e:
+        st.error(f"❌ 無法讀取本地文件: {e}")
+        return []
 # 獲取歷史K線數據
 def get_binance_klines(symbol, interval):
     """
@@ -99,7 +106,7 @@ def get_current_price(symbol):
         return None
 
 # 載入交易對
-symbols_data = get_binance_symbols()
+symbols_data = get_symbols_from_file()
 if not symbols_data:
     st.error("❌ 無法載入交易對數據")
     st.stop()
