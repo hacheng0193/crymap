@@ -18,32 +18,6 @@ st.sidebar.header("選擇參數")
 
 # 獲取 Binance 交易對清單
 @st.cache_data(ttl=3600)  # 緩存1小時
-def get_binance_symbols():
-    """獲取 Binance 所有 USDT 交易對"""
-    try:
-        url = "https://api.binance.com/api/v3/exchangeInfo"
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
-        }
-        response = requests.get(url, headers=headers)
-        data = response.json()
-        if 'symbols' not in data:
-            st.error("❌ 無法獲取交易對數據，請檢查 API 是否正常")
-            return None
-        # 過濾出 USDT 交易對且狀態為 TRADING
-        usdt_symbols = []
-        for symbol_info in data['symbols']:
-            if ('USDT' in symbol_info['symbol']) and symbol_info['status'] == 'TRADING':
-                usdt_symbols.append({
-                    'symbol': symbol_info['symbol'],
-                    'baseAsset': symbol_info['baseAsset'],
-                    'quoteAsset': symbol_info['quoteAsset'],
-                })
-        
-        return sorted(usdt_symbols, key=lambda x: x['baseAsset'])
-    except Exception as e:
-        st.error(f"❌ 獲取交易對失敗: {e}")
-        return None
 def get_symbols_from_file():
     """從本地文件獲取交易對清單"""
     try:
