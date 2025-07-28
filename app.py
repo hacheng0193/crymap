@@ -22,7 +22,10 @@ def get_binance_symbols():
     """獲取 Binance 所有 USDT 交易對"""
     try:
         url = "https://api.binance.com/api/v3/exchangeInfo"
-        response = requests.get(url)
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
+        }
+        response = requests.get(url, headers=headers)
         data = response.json()
         # 過濾出 USDT 交易對且狀態為 TRADING
         usdt_symbols = []
@@ -36,7 +39,8 @@ def get_binance_symbols():
         
         return sorted(usdt_symbols, key=lambda x: x['baseAsset'])
     except Exception as e:
-        raise e
+        st.error(f"❌ 獲取交易對失敗: {e}")
+        return None
 
 # 獲取歷史K線數據
 def get_binance_klines(symbol, interval):
