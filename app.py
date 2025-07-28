@@ -27,6 +27,9 @@ def get_binance_symbols():
         }
         response = requests.get(url, headers=headers)
         data = response.json()
+        if 'symbols' not in data:
+            st.error("❌ 無法獲取交易對數據，請檢查 API 是否正常")
+            return None
         # 過濾出 USDT 交易對且狀態為 TRADING
         usdt_symbols = []
         for symbol_info in data['symbols']:
