@@ -14,6 +14,7 @@ st.set_page_config(layout="wide")
 #st.title("📊 加密貨幣價格波動與價值分布分析工具 (Binance API)")
 
 # === Sidebar: 幣種選擇與時間範圍 ===
+st.sidebar.title("📊 CryMap")
 st.sidebar.header("選擇參數")
 
 # 獲取 Binance 交易對清單
