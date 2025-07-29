@@ -11,13 +11,39 @@ import json
 import time
 
 st.set_page_config(layout="wide")
-st.title("📊 加密貨幣價格波動與價值分布分析工具 (Binance API)")
+#st.title("📊 加密貨幣價格波動與價值分布分析工具 (Binance API)")
 
 # === Sidebar: 幣種選擇與時間範圍 ===
 st.sidebar.header("選擇參數")
 
 # 獲取 Binance 交易對清單
 @st.cache_data(ttl=3600)  # 緩存1小時
+def get_binance_symbols():
+    """獲取 Binance 所有 USDT 交易對"""
+    try:
+        url = "https://api.binance.com/api/v3/exchangeInfo"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
+        }
+        response = requests.get(url, headers=headers)
+        data = response.json()
+        if 'symbols' not in data:
+            st.error("❌ 無法獲取交易對數據，請檢查 API 是否正常")
+            return None
+        # 過濾出 USDT 交易對且狀態為 TRADING
+        usdt_symbols = []
+        for symbol_info in data['symbols']:
+            if ('USDT' in symbol_info['symbol']) and symbol_info['status'] == 'TRADING':
+                usdt_symbols.append({
+                    'symbol': symbol_info['symbol'],
+                    'baseAsset': symbol_info['baseAsset'],
+                    'quoteAsset': symbol_info['quoteAsset'],
+                })
+        
+        return sorted(usdt_symbols, key=lambda x: x['baseAsset'])
+    except Exception as e:
+        st.error(f"❌ 獲取交易對失敗: {e}")
+        return None
 def get_symbols_from_file():
     """從本地文件獲取交易對清單"""
     try:
@@ -27,7 +53,7 @@ def get_symbols_from_file():
         st.error(f"❌ 無法讀取本地文件: {e}")
         return []
 # 獲取歷史K線數據
-def get_binance_klines(symbol, interval):
+def get_binance_klines(symbol, interval, limit=1000):
     """
     獲取 Binance K線數據
     interval: 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 8h, 12h, 1d, 3d, 1w, 1M
@@ -36,7 +62,8 @@ def get_binance_klines(symbol, interval):
         url = "https://api.binance.com/api/v3/klines"
         params = {
             'symbol': symbol,
-            'interval': interval
+            'interval': interval,
+            'limit': limit
         }
         response = requests.get(url, params=params)
         data = response.json()
@@ -57,7 +84,6 @@ def get_binance_klines(symbol, interval):
             # 時間戳轉換
             df['datetime'] = pd.to_datetime(df['open_time'], unit='ms')
             df.set_index('datetime', inplace=True)
-            
             return df
         else:
             st.error(f"API 返回錯誤: {data}")
@@ -80,7 +106,7 @@ def get_current_price(symbol):
         return None
 
 # 載入交易對
-symbols_data = get_symbols_from_file()
+symbols_data = get_binance_symbols()
 if not symbols_data:
     st.error("❌ 無法載入交易對數據")
     st.stop()
@@ -103,16 +129,17 @@ selected_symbol = symbol_options[selected_symbol_key]
 
 # 時間範圍選擇
 time_options = {
-    "1天": ("1m", 1440),
-    "3天": ("15m", 72), 
-    "7天": ("1h", 168),
+    "1天": ("3m", 480),
+    "3天": ("15m", 288), 
+    "7天": ("15m", 672),
+    "14天": ("1h", 336),
     "30天": ("4h", 180),
-    "90天": ("4h", 720),
+    "90天": ("6h", 360),
     "180天": ("1d", 180),
     "1年": ("1d", 365),
     "2年": ("1d", 730),
-    "3年": ("1d", 1095),
-    "5年": ("1d", 1825),
+    "3年": ("3d", 365),
+    "5年": ("1w", 260),
 }
 
 selected_period = st.sidebar.selectbox(
@@ -125,22 +152,14 @@ interval, limit = time_options[selected_period]
 
 # === 獲取數據 ===
 with st.spinner("正在獲取數據..."):
-    df = get_binance_klines(selected_symbol, interval)
+    df = get_binance_klines(selected_symbol, interval, limit)
+    #st.write(len(df), "條數據已獲取", limit, "筆數據限制")
     current_price = get_current_price(selected_symbol)
 
 if df is None:
     st.error("❌ 無法獲取數據，請檢查網絡連接或稍後再試")
     st.stop()
 
-# === 顯示基本信息 ===
-st.subheader(f"📉 {selected_symbol} 最新價格")
-if current_price:
-    price_change = ((current_price - df['close'].iloc[-2]) / df['close'].iloc[-2]) * 100
-    color = "🟢" if price_change >= 0 else "🔴"
-    st.markdown(f"- **最新價格**: ${current_price:.6f}")
-    st.markdown(f"- **24h變化**: {color} {price_change:.2f}%")
-else:
-    st.markdown(f"- **最新價格**: ${df['close'].iloc[-1]:.6f}")
 # === 價格分布圖（成交量加權 KDE） ===
 st.subheader("📊 價格分布圖 (成交量加權)")
 
@@ -183,7 +202,7 @@ if len(prices_clean) > 10:  # 確保有足夠的數據點
             line_color="white", 
             line_width=3,
             annotation_text=f"當前價格: ${current_display_price:.6f}", 
-            annotation_position="top right"
+            annotation_position="bottom right"
         )
         
         # 標記重要價格水平（峰值 - 支撐阻力位）
@@ -231,31 +250,69 @@ if len(prices_clean) > 10:  # 確保有足夠的數據點
         st.plotly_chart(fig2_simple, use_container_width=True)
 
 # === 計算波動率統計 ===
+# 計算當日波動率（固定計算最近24小時，不受選定時間範圍影響）
+def calculate_today_volatility(symbol):
+    """計算當日波動率 - 固定使用最近24小時數據"""
+    try:
+        # 獲取最近24小時的小時線數據
+        url = "https://api.binance.com/api/v3/klines"
+        params = {
+            'symbol': symbol,
+            'interval': '1h',
+            'limit': 25  # 25小時確保有24小時完整數據
+        }
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
+        
+        if isinstance(data, list) and len(data) >= 2:
+            # 取24小時前和現在的價格
+            start_price = float(data[0][4])  # 24小時前收盤價
+            end_price = float(data[-1][4])   # 最新收盤價
+            return (end_price - start_price) / start_price
+        else:
+            return 0
+    except Exception as e:
+        st.warning(f"無法計算當日波動率: {e}")
+        return 0
+
+# 計算歷史波動率分佈（根據選定的時間範圍）
 if interval == "1d":
     # 日線數據直接計算日報酬率
     df['daily_return'] = df['close'].pct_change()
     volatility_data = df['daily_return'].dropna()
     period_name = "日"
-elif interval in ["1m", "3m", "5m", "15m", "30m"]:
-    # 分鐘線數據，需要重新採樣到日線
+elif interval in ["1h", "4h", "6h"]:
+    # 小時線數據，重新採樣到日線計算日波動率
     daily_df = df['close'].resample('1D').last()
     daily_returns = daily_df.pct_change().dropna()
     volatility_data = daily_returns
     period_name = "日"
-elif interval in ["1h", "4h"]:
-    # 小時線數據，需要重新採樣到日線
-    daily_df = df['close'].resample('1D').last()
-    daily_returns = daily_df.pct_change().dropna()
-    volatility_data = daily_returns
-    period_name = "日"
-else:
-    # 其他時間框架
+elif interval in ["3d", "1w"]:
+    # 3日線和週線數據，直接使用週期報酬率
     volatility_data = df['close'].pct_change().dropna()
-    period_name = "週期"
+    if interval == "3d":
+        period_name = "3日"
+    else:
+        period_name = "週"
+else:
+    # 其他時間框架（分鐘線），重新採樣到日線
+    daily_df = df['close'].resample('1D').last()
+    daily_returns = daily_df.pct_change().dropna()
+    volatility_data = daily_returns
+    period_name = "日" 
+
+# 固定計算當日24小時波動率（不受時間範圍影響）
+today_vol = calculate_today_volatility(selected_symbol)
 
 mean_vol = volatility_data.mean()
 std_vol = volatility_data.std()
-latest_vol = volatility_data.iloc[-1]
+latest_vol = volatility_data.iloc[-1] if not volatility_data.empty else 0
+
+# 計算當日波動率在分佈中的百分位數
+if len(volatility_data) > 0:
+    today_percentile = (volatility_data <= today_vol).sum() / len(volatility_data) * 100
+else:
+    today_percentile = 50
 
 # === 互動式波動分布圖 ===
 st.subheader(f"📈 {period_name}波動分布圖")
@@ -265,11 +322,12 @@ y = norm.pdf(x, mean_vol, std_vol)
 
 fig1 = go.Figure()
 
+
 # 添加正態分布線
 fig1.add_trace(go.Scatter(
     x=x, y=y, 
     mode='lines', 
-    name='正態分布', 
+    name='常態分布', 
     line=dict(color='red', width=2)
 ))
 
@@ -365,12 +423,24 @@ fig4.update_layout(
 
 st.plotly_chart(fig4, use_container_width=True)
 
+st.sidebar.markdown(f"**更新時間**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+# 添加數據源信息
+st.sidebar.markdown("---")
+# === 顯示基本信息 ===
+if current_price:
+    price_change = ((current_price - df['close'].iloc[-2]) / df['close'].iloc[-2]) * 100
+    st.sidebar.markdown(f" **最新價格**: ${current_price:.6f}")
+else:
+    st.sidebar.markdown(f" **最新價格**: ${df['close'].iloc[-1]:.6f}")
+st.sidebar.markdown(f"#### 當前波動率: {latest_vol:.2%} ({today_percentile:.2f} 百分位)")
+if latest_vol > mean_vol - std_vol and latest_vol < mean_vol + std_vol:
+    st.sidebar.markdown("**🟢 當前波動率正常**")
+elif (latest_vol > mean_vol + std_vol and latest_vol < mean_vol + 2 * std_vol) or (latest_vol < mean_vol - std_vol and latest_vol > mean_vol - 2 * std_vol):
+    st.sidebar.markdown("**🟡 當前波動率高於平均一個標準差**")
+elif latest_vol > mean_vol + 2 * std_vol or latest_vol < mean_vol - 2 * std_vol:
+    st.sidebar.markdown("**🔴 當前波動率極高**")
 # === 風險提示 ===
 st.sidebar.markdown("---")
 st.sidebar.markdown("⚠️ **風險提示**")
 st.sidebar.markdown("本工具僅供分析參考，不構成投資建議。加密貨幣投資存在高風險，請謹慎決策。")
-
-# 添加數據源信息
-st.sidebar.markdown("---")
-st.sidebar.markdown("📡 **數據源**: Binance API")
-st.sidebar.markdown(f"🕐 **更新時間**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
