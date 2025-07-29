@@ -1,0 +1,25 @@
+{
+  "name": "crypto_tools",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "deploy": "gh-pages -d src"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hacheng0193/crymap.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/hacheng0193/crymap/issues"
+  },
+  "homepage": "https://github.com/hacheng0193/crymap#readme",
+  "dependencies": {
+    "gh-pages": "^6.3.0"
+  }
+}

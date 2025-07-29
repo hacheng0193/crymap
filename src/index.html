@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+    <title>Stlite App</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@stlite/browser@0.85.1/build/stlite.css"
+    />
+    <script
+      type="module"
+      src="https://cdn.jsdelivr.net/npm/@stlite/browser@0.85.1/build/stlite.js"
+    ></script>
+  </head>
+  <body>
+    <streamlit-app>
+      <script>
+        async function fetchData() {
+          const response = await fetch('app.py');
+          const data = await response.text();
+          document.querySelector('streamlit-app').innerText = data;
+        }
+        fetchData();
+      </script>
+    </streamlit-app>
+  </body>
+</html>
