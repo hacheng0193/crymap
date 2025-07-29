@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>加密波動分析工具</title>
+    <script type="module">
+      import { mount } from "https://esm.run/stlite";
+
+      const appPy = await fetch("app.py").then(res => res.text());
+      mount({
+        entrypoint: "app.py",
+        files: {
+          "app.py": appPy,
+        }
+      });
+    </script>
+  </head>
+  <body></body>
+</html>
